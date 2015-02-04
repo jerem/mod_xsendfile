@@ -58,6 +58,7 @@
 
 #define AP_XSENDFILE_HEADER "X-SENDFILE"
 #define AP_XSENDFILETEMPORARY_HEADER "X-SENDFILE-TEMPORARY"
+#define AP_XSENDFILECONTENTENCODING_HEADER "X-SENDFILE-CONTENT-ENCODING"
 
 module AP_MODULE_DECLARE_DATA xsendfile_module;
 
@@ -311,6 +312,8 @@ static apr_status_t ap_xsendfile_output_filter(ap_filter_t *f, apr_bucket_brigad
   char *file = NULL;
   char *translated = NULL;
 
+  char *forceEncoding = NULL;
+
   int errcode;
   int shouldDeleteFile = 0;
 
@@ -397,6 +400,18 @@ static apr_status_t ap_xsendfile_output_filter(ap_filter_t *f, apr_bucket_brigad
   apr_table_unset(r->err_headers_out, "Content-Length");
   apr_table_unset(r->headers_out, "Content-Encoding");
   apr_table_unset(r->err_headers_out, "Content-Encoding");
+
+  /* Allow to force a content encoding */
+  forceEncoding = (char*)apr_table_get(r->headers_out, AP_XSENDFILECONTENTENCODING_HEADER);
+  if (!forceEncoding || !*forceEncoding) {
+    forceEncoding = (char*)apr_table_get(r->err_headers_out, AP_XSENDFILECONTENTENCODING_HEADER);
+  }
+  if (forceEncoding) {
+    apr_table_unset(r->headers_out, AP_XSENDFILECONTENTENCODING_HEADER);
+    apr_table_unset(r->err_headers_out, AP_XSENDFILECONTENTENCODING_HEADER);
+    apr_table_set(r->headers_out, "Content-Encoding", forceEncoding);
+  }
+
 
   /* Decode header
      lighttpd does the same for X-Sendfile2, so we're compatible here
